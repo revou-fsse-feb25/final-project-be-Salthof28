@@ -9,10 +9,11 @@ import { PhoneRegisteredException } from '../auth/exception/phone-registered-exc
 import * as bcrypt from 'bcrypt';
 import { PasswordUserException } from './exception/password-user-exception';
 import { UpdateUserDto } from './dto/req/update-user.dto';
+import { RedisService } from 'redis/redis.service';
 
 @Injectable()
 export class UsersService implements UsersServiceItf {
-  constructor(@Inject('UsersRepositoryItf') private usersRepository: UsersRepositoryItf) {}
+  constructor(@Inject('UsersRepositoryItf') private usersRepository: UsersRepositoryItf, private readonly redisService: RedisService) {}
 
   async getAllUsers(query?: Condition): Promise<Users[]> {
     const allUsers: Users[] | undefined = await this.usersRepository.getAllUser(query);
@@ -21,9 +22,18 @@ export class UsersService implements UsersServiceItf {
   }
   
   async getProfile(id: number): Promise<Users> {
+    // let cacheProfile: Users | null = await this.redisService.get(`${id}`);
+    // if(!cacheProfile) {
+    //   console.log('hello')
+    //   const userProfile: Users | undefined = await this.usersRepository.findById(id);
+    //   if(!userProfile) throw new UserNotFoundException();
+    //   await this.redisService.set(`${id}`, userProfile);
+    //   cacheProfile = userProfile;
+    // }
+    // return cacheProfile;
     const userProfile: Users | undefined = await this.usersRepository.findById(id);
     if(!userProfile) throw new UserNotFoundException();
-    return userProfile;
+    return userProfile
   }
 
   async findUserByAdmin(id: number): Promise<Users> {
@@ -55,8 +65,9 @@ export class UsersService implements UsersServiceItf {
     }
     else if(user.body.password?.trim() && !user.oldPassword?.trim()) throw new PasswordUserException('old password no been input');
     else if(!user.body.password?.trim() && user.oldPassword?.trim()) throw new PasswordUserException('new password no been input');
-    // update to database
+    // update to database and redis
     const updated = await this.usersRepository.updatedProfile(user);
+    await this.redisService.set(`${user.id}`, updated);
     return updated;
   }
 
