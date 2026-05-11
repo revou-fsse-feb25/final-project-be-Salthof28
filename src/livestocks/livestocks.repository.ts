@@ -3,7 +3,7 @@ import { LivestocksRepositoryItf, NewImgUrlLive, NewLivestock, OutDetailLivestoc
 import { PrismaService } from "prisma/prisma.service";
 import { Livestock } from "@prisma/client";
 import { Condition } from "../global/entities/condition-entity";
-import { handlePrismaError } from "../global/utils/prisma.error.util";
+import { handlePrismaError, retry } from "../global/utils/prisma.error.util";
 
 @Injectable()
 export class LivestocksRepository implements LivestocksRepositoryItf {
@@ -35,7 +35,7 @@ export class LivestocksRepository implements LivestocksRepositoryItf {
                 });
             }
             
-            const allShelter: Livestock[] = await this.prisma.livestock.findMany({
+            const allShelter: Livestock[] = await retry(() => this.prisma.livestock.findMany({
                 where,
                 include: { 
                     category: {
@@ -52,7 +52,7 @@ export class LivestocksRepository implements LivestocksRepositoryItf {
                     },
                     
                 }
-            });
+            }));
             return allShelter;
         } catch (error) {
             handlePrismaError(error);
@@ -61,14 +61,14 @@ export class LivestocksRepository implements LivestocksRepositoryItf {
 
     async getOne(id: number): Promise<OutDetailLivestock | undefined> {
         try {
-            const livestock: OutDetailLivestock | null = await this.prisma.livestock.findUnique({
+            const livestock: OutDetailLivestock | null = await retry(() => this.prisma.livestock.findUnique({
                 where: { id },
                 include: {
                     category: true,
                     img_livestock: { select: { url: true } },
                     farm: true
                 }
-            });
+            }));
             if(livestock === null) return undefined;
             return livestock;
         } catch (error) {
@@ -78,14 +78,14 @@ export class LivestocksRepository implements LivestocksRepositoryItf {
 
     async getRelationLivestock(id: number): Promise<OutRelationLivestock | undefined> {
         try {
-            const livestock: OutRelationLivestock | null = await this.prisma.livestock.findUnique({
+            const livestock: OutRelationLivestock | null = await retry(() => this.prisma.livestock.findUnique({
                 where: { id },
                 select: {
                     farm: {
                         select: { user_id: true }
                     }
                 }
-            });
+            }));
             if(livestock === null) return undefined;
             return livestock;
         } catch (error) {
@@ -176,7 +176,7 @@ export class LivestocksRepository implements LivestocksRepositoryItf {
         try {
             const where: any = {};
             if(id) where.id = { in: id };
-            const allLivestock: Livestock[] = await this.prisma.livestock.findMany({ where });
+            const allLivestock: Livestock[] = await retry(() => this.prisma.livestock.findMany({ where }));
             if(allLivestock.length < 1) return undefined;
             return allLivestock;    
         } catch (error) {

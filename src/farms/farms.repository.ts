@@ -3,7 +3,7 @@ import { BuildingFarm, FarmsRepositoryItf, UpdateFarm } from "./farms.repository
 import { PrismaService } from "prisma/prisma.service";
 import { Farms } from "@prisma/client";
 import { Condition } from "../global/entities/condition-entity";
-import { handlePrismaError } from "src/global/utils/prisma.error.util";
+import { handlePrismaError, retry } from "src/global/utils/prisma.error.util";
 
 @Injectable()
 export class FarmsRepository implements FarmsRepositoryItf {
@@ -22,7 +22,7 @@ export class FarmsRepository implements FarmsRepositoryItf {
                 if(query.location) where.OR.push({ location: query.location });
                 if(query.rating) where.OR.push({ rating: query.rating });
             };
-            const allFarms: Farms[] = await this.prisma.farms.findMany({
+            const allFarms: Farms[] = await retry(() => this.prisma.farms.findMany({
                 where,
                 include: {
                     shelters: {
@@ -40,7 +40,7 @@ export class FarmsRepository implements FarmsRepositoryItf {
                         }
                     }
                 }
-            });
+            }));
             return allFarms;
         } catch (error) {
             handlePrismaError(error);
@@ -49,9 +49,9 @@ export class FarmsRepository implements FarmsRepositoryItf {
 
     async getFarm(id: number): Promise<Farms | undefined> {
         try {
-            const farm: Farms | null = await this.prisma.farms.findUnique({
+            const farm: Farms | null = await retry(() => this.prisma.farms.findUnique({
                 where: { id }
-            });
+            }));
             if(farm === null) return undefined;
             return farm;
         } catch (error) {
@@ -61,7 +61,7 @@ export class FarmsRepository implements FarmsRepositoryItf {
 
     async getShelterFarm(id: number): Promise<Farms | undefined> {
         try {
-            const farm: Farms | null = await this.prisma.farms.findUnique({
+            const farm: Farms | null = await retry(() => this.prisma.farms.findUnique({
                 where: { id },
                 include: {shelters: {
                     include: { 
@@ -76,7 +76,7 @@ export class FarmsRepository implements FarmsRepositoryItf {
                         img_shelter: true
                     }
                 }}
-            });
+            }));
             if(farm === null) return undefined;
             return farm;
         } catch (error) {
@@ -86,9 +86,9 @@ export class FarmsRepository implements FarmsRepositoryItf {
 
     async getFarmByUserId(user_id: number): Promise<Farms | undefined> {
         try {
-            const farm: Farms | null = await this.prisma.farms.findUnique({
+            const farm: Farms | null = await retry(() => this.prisma.farms.findUnique({
                 where: { user_id }
-            });
+            }));
             if(farm === null) return undefined;
             return farm;
         } catch (error) {

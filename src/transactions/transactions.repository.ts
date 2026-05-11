@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AllBooking, AllCareBooking, CreateBuyCareTransaction, CreateTransactionBuy, CreateTransactionCare, OutAccessBuy, OutAccessCare, OutAllBooking, OutFarmIdTransaction, Rating, TransactionsRepositoryItf, UpdateCareTransaction, UpdateDetailBuy, UpdateTransaction } from './transactions.repository.interface';
 import { PrismaService } from 'prisma/prisma.service';
 import { Condition } from '../global/entities/condition-entity';
-import { handlePrismaError } from '../global/utils/prisma.error.util';
+import { handlePrismaError, retry } from '../global/utils/prisma.error.util';
 import { CareTransaction, DetailBuyTransaction, StatusTransaction, Transaction } from '@prisma/client';
 
 @Injectable()
@@ -19,7 +19,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
                 if(query.transaction_status) where.OR.push({ transaction_status: query.transaction_status });
             }
             
-            const allTransaction: Transaction[] = await this.prisma.transaction.findMany({ 
+            const allTransaction: Transaction[] = await retry(() => this.prisma.transaction.findMany({ 
                 where,
                 include: {
                     detail_buy: {
@@ -51,7 +51,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
                 orderBy: {
                     date_transaction: 'desc'
                 }
-            })
+            }));
             return allTransaction;
         } catch (error) {
             handlePrismaError(error);
@@ -60,7 +60,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
 
     async getAllCareByShelter(shelter_id: number): Promise<CareTransaction[]> {
         try {
-            const allTransaction: CareTransaction[] = await this.prisma.careTransaction.findMany({
+            const allTransaction: CareTransaction[] = await retry(() => this.prisma.careTransaction.findMany({
                 where: {
                     shelter_id,
                     transaction: {
@@ -72,7 +72,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
                         select: { date_transaction: true }
                     }
                  }
-            });
+            }));
             return allTransaction
         } catch (error) {
             handlePrismaError(error);
@@ -81,7 +81,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
 
     async getAllCare(transaction_id?: number, booking?: AllCareBooking, status?: string): Promise<CareTransaction[]> {
         try {
-            const allCare: CareTransaction[] = await this.prisma.careTransaction.findMany({
+            const allCare: CareTransaction[] = await retry(() => this.prisma.careTransaction.findMany({
                 where: {
                     ...(transaction_id && { transaction_id }),
                     ...(booking && {
@@ -98,7 +98,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
                 // include: {
                 //     transaction: true
                 // }
-            });
+            }));
             return allCare;
         } catch (error) {
             handlePrismaError(error);
@@ -107,10 +107,10 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
 
     async getAllbooking(booking: AllBooking[]): Promise<OutAllBooking[]> {
         try {     
-            const allCare: OutAllBooking[] = await this.prisma.careTransaction.findMany({
+            const allCare: OutAllBooking[] = await retry(() => this.prisma.careTransaction.findMany({
                 where: { OR: booking },
                 select: { shelter_id: true, total_livestock: true },
-            })
+            }));
             return allCare;
         } catch (error) {
             handlePrismaError(error);
@@ -119,14 +119,14 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
 
     async getOne(id: number): Promise<OutFarmIdTransaction | undefined> {
         try {
-            const transaction: OutFarmIdTransaction | null = await this.prisma.transaction.findUnique({
+            const transaction: OutFarmIdTransaction | null = await retry(() => this.prisma.transaction.findUnique({
                 where: { id },
                 include: {
                     detail_buy: true,
                     care_transaction: true,
                     farm: { select: { user_id: true } }
                 }
-            });
+            }));
             if(transaction === null) return undefined;
             return transaction
         } catch (error) {
@@ -136,7 +136,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
 
     async getOneBuy(id: number): Promise<OutAccessBuy | undefined> {
         try {
-            const buyOne: OutAccessBuy | null = await this.prisma.detailBuyTransaction.findUnique({
+            const buyOne: OutAccessBuy | null = await retry(() => this.prisma.detailBuyTransaction.findUnique({
                 where: { id },
                 include: {
                     transaction: {
@@ -149,7 +149,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
                         }
                     }                    
                 }
-            });
+            }));
             if(buyOne === null) return undefined;
             return buyOne
         } catch (error) {
@@ -159,7 +159,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
 
     async getOneCare(id: number): Promise<OutAccessCare | undefined> {
         try {
-            const careOne: OutAccessCare | null = await this.prisma.careTransaction.findUnique({
+            const careOne: OutAccessCare | null = await retry(() => this.prisma.careTransaction.findUnique({
                 where: { id },
                 include: {
                     transaction: {
@@ -175,7 +175,7 @@ export class TransactionsRepository implements TransactionsRepositoryItf {
                         select: { accomodate: true }
                     }                    
                 }
-            });
+            }));
             if(careOne === null) return undefined;
             return  careOne
         } catch (error) {

@@ -5,7 +5,7 @@ import { OutDetailProfile, UpdatedUser, UsersRepositoryItf } from "./users.repos
 import { SessionLogin, Users } from "@prisma/client";
 import { Condition } from "../global/entities/condition-entity";
 import { CreateUserDto } from "./dto/req/create-user.dto";
-import { handlePrismaError } from "../global/utils/prisma.error.util";
+import { handlePrismaError, retry } from "../global/utils/prisma.error.util";
 import { SessionDetailDto } from "./dto/req/create-session-login.dto";
 import { UpdateRefreshTokenSessionDto } from "./dto/req/update-refresh-token-session.dto";
 
@@ -16,29 +16,34 @@ export class UsersRepository implements UsersRepositoryItf {
     constructor(private prisma: PrismaService){}
 
     async getAllUser(query?: Condition): Promise<Users[] | undefined> {
-        const where: Condition = {};
-        if(query?.name || query?.email || query?.phone) {
-            where.OR = [];
-            if(query.name) where.OR.push({name: {
-                    contains: query.name,
-                    mode: 'insensitive'
-                }
-            });
-            if(query.email) where.OR.push({email: query.email});
-            if(query.phone) where.OR.push({phone: query.phone});
-        };
-        const allUsers: Users[] = await this.prisma.users.findMany({ where });
-        if(allUsers.length < 1) return undefined;
-        return allUsers;
+        try {
+            const where: Condition = {};
+            if(query?.name || query?.email || query?.phone) {
+                where.OR = [];
+                if(query.name) where.OR.push({name: {
+                        contains: query.name,
+                        mode: 'insensitive'
+                    }
+                });
+                if(query.email) where.OR.push({email: query.email});
+                if(query.phone) where.OR.push({phone: query.phone});
+            };
+            const allUsers: Users[] = await retry(() => this.prisma.users.findMany({ where }));
+            if(allUsers.length < 1) return undefined;
+            return allUsers;
+        } catch (error) {
+            handlePrismaError(error);
+        }
+
     }
 
     async findEmail(email: string): Promise<Users | undefined> {
         try {
-            const user: Users | null = await this.prisma.users.findUnique({
+            const user: Users | null = await retry(() => this.prisma.users.findUnique({
                 where: {
                     email
                 }
-            });
+            }));
             if(user === null) return undefined;
             return user
         } catch (error) {
@@ -49,7 +54,7 @@ export class UsersRepository implements UsersRepositoryItf {
 
     async findById(id: number): Promise<OutDetailProfile | undefined> {
         try {
-            const user = await this.prisma.users.findUnique({
+            const user = await retry(() => this.prisma.users.findUnique({
                 where: {
                     id
                 },
@@ -58,7 +63,7 @@ export class UsersRepository implements UsersRepositoryItf {
                         select: { id: true }
                     }
                 }
-            });
+            }));
             if(user === null) return undefined;
             return user
         } catch (error) {
@@ -68,9 +73,9 @@ export class UsersRepository implements UsersRepositoryItf {
 
     async findExistingUser(condition: Condition[]): Promise<Users | undefined> {
         try {
-            const user: Users | null = await this.prisma.users.findFirst({
+            const user: Users | null = await retry(() => this.prisma.users.findFirst({
                 where: { OR: condition }
-            });
+            }));
             if(user === null) return undefined;
             return user
         } catch (error) {
@@ -81,7 +86,7 @@ export class UsersRepository implements UsersRepositoryItf {
 
     async created(body: CreateUserDto): Promise<Users> {
         try {
-            const user: Users = await this.prisma.users.create({
+            const user: Users = await retry(() => this.prisma.users.create({
                 data: {
                     name: body.name,
                     email: body.email,
@@ -90,7 +95,7 @@ export class UsersRepository implements UsersRepositoryItf {
                     password: body.password,
                     role: body.role
                 }
-            });
+            }));
             return user
         } catch (error) {
             handlePrismaError(error);
@@ -163,11 +168,11 @@ export class UsersRepository implements UsersRepositoryItf {
 
     async findSessionbyIdToken(id_token: string): Promise<SessionLogin | undefined> {
         try {
-            const findSession: SessionLogin | null = await this.prisma.sessionLogin.findUnique({
+            const findSession: SessionLogin | null = await retry(() => this.prisma.sessionLogin.findUnique({
                 where: {
                     id_token
                 }
-            });
+            }));
             if(findSession === null) return undefined;
             return findSession
         } catch (error) {
