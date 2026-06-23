@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { RatingService, TransactionBuy, TransactionBuyCare, TransactionCare, TransactionsServiceItf, UpdateBuy, UpdateCare, UpdateCountTransaction, UpdateTransaction } from './transactions.service.interface';
 import { OutAccessBuy, OutAccessCare, OutFarmIdTransaction, TransactionsRepositoryItf } from './transactions.repository.interface';
-import { CareGive, CareTransaction, DetailBuyTransaction, Livestock, Prisma, Shelter, Transaction, Users } from '@prisma/client';
+import { CareTransaction, DetailBuyTransaction, Farms, Livestock, Prisma, Shelter, Transaction } from '@prisma/client';
 import { Condition } from '../global/entities/condition-entity';
 import { TransactionNotFoundException } from './exception/transaction-not-found-exception';
 import { OutAccomodate, OutCareShelter, SheltersRepositoryItf } from '../shelters/shelters.repository.interface';
@@ -13,12 +13,12 @@ import { LivestockNotFoundException } from 'src/livestocks/exception/livestock-n
 import { TransactionErrorException } from './exception/transaction-error-exception';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ShelterNotFoundException } from 'src/shelters/exception/shelter-not-found-exception';
-import { OutDetailProfile, UsersRepositoryItf } from 'src/users/users.repository.interface';
 import { FarmNotFoundException } from 'src/farms/exception/farm-not-found-exception';
+import { FarmsRepositoryItf } from 'src/farms/farms.repository.interface';
 
 @Injectable()
 export class TransactionsService implements TransactionsServiceItf {
-  constructor(@Inject('TransactionsRepositoryItf') private readonly transactionsRepository: TransactionsRepositoryItf, @Inject('SheltersRepositoryItf') private readonly sheltersRepository: SheltersRepositoryItf, @Inject('LivestocksRepositoryItf') private readonly livestocksRepository: LivestocksRepositoryItf, @Inject('UsersRepositoryItf') private usersRepository: UsersRepositoryItf){}
+  constructor(@Inject('TransactionsRepositoryItf') private readonly transactionsRepository: TransactionsRepositoryItf, @Inject('SheltersRepositoryItf') private readonly sheltersRepository: SheltersRepositoryItf, @Inject('LivestocksRepositoryItf') private readonly livestocksRepository: LivestocksRepositoryItf, @Inject('FarmsRepositoryItf') private readonly farmsRepository: FarmsRepositoryItf){}
 
   async getAllTransaction(query?: Condition): Promise<Transaction[]> {
     const allTransaction: Transaction[] | undefined = await this.transactionsRepository.getAll(query);
@@ -27,9 +27,9 @@ export class TransactionsService implements TransactionsServiceItf {
   };
 
   async getAllTransactionBreeder(user_id: number): Promise<Transaction[]> {
-    const users: OutDetailProfile | undefined = await this.usersRepository.findById(user_id);
-    if(users?.farms === null) throw new FarmNotFoundException('Your farm not registered');
-    const allTransaction: Transaction[] | undefined = await this.transactionsRepository.getAll({farm_id: users?.farms.id});
+    const farm: Farms | undefined = await this.farmsRepository.getFarmByUserId(user_id);
+    if(!farm) throw new FarmNotFoundException('Your farm not registered');
+    const allTransaction: Transaction[] | undefined = await this.transactionsRepository.getAll({farm_id: farm.id});
     return allTransaction;
   };
 
