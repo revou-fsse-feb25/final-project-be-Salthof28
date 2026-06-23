@@ -28,6 +28,4 @@ export class UserBodyDto {
     @Expose()
     @Type(() => Date)
     updated_at: Date
-    @Expose()
-    farms;
 }
